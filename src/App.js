@@ -103,18 +103,33 @@ function reducer(state, action) {
       return state; // Return unchanged if invalid payment (including overpayment)
 
     case 'closeAccount':
-      // Customer can only close an account if there is no loan
-      // If balance > 0, withdraw all money (reset balance to 0)
-      if (state.loan === 0) {
+      // Customer can close account if:
+      // 1. No loan (loan === 0), OR
+      // 2. Balance is sufficient to pay off the loan (balance >= loan)
+      const currentBalance = Number(state.balance);
+      const currentLoan = Number(state.loan);
+      
+      if (currentLoan === 0) {
+        // No loan - close account normally
         return {
           ...state,
           isActive: false,
-          lastBalance: state.balance, // Save the balance before closing
+          lastBalance: currentBalance,
+          balance: 0,
+          loan: 0
+        };
+      } else if (currentBalance >= currentLoan) {
+        // Balance is sufficient to pay off loan - auto-pay and close
+        return {
+          ...state,
+          isActive: false,
+          lastBalance: currentBalance - currentLoan, // Save balance after paying loan
           balance: 0,
           loan: 0
         };
       }
-      return state; // If loan exists, return current state unchanged
+      // If loan exists and balance is insufficient, cannot close
+      return state;
     default:
       return state;
   }
@@ -242,7 +257,7 @@ export default function App() {
       <p>
         <button
           onClick={() => dispatch({ type: 'closeAccount' })}
-          disabled={!state.isActive || state.loan !== 0}
+          disabled={!state.isActive || (state.loan > 0 && state.balance < state.loan)}
         >
           Close account
         </button>
